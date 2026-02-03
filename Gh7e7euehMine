@@ -1,0 +1,569 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Roker Hub",
+    Icon = "diamond", -- lucide icon
+    Author = "By Cvoda blox",
+    Folder = "ZiziEditYt",
+    
+    -- ↓ This all is Optional. You can remove it.
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 200,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = true,
+    
+    -- ↓ Optional. You can remove it.
+    --[[ You can set 'rbxassetid://' or video to Background.
+        'rbxassetid://':
+            Background = "rbxassetid://", -- rbxassetid
+        Video:
+            Background = "video:YOUR-RAW-LINK-TO-VIDEO.webm", -- video 
+    --]]
+    
+})
+
+Window:EditOpenButton({
+    Title = "Open",
+    Icon = "monitor",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new( -- gradient
+        Color3.fromHex("FF0F7B"), 
+        Color3.fromHex("F89B29")
+    ),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+Window:Tag({
+    Title = "my mining brainrot",
+    Icon = "github",
+    Color = Color3.fromHex("#30ff6a"),
+    Radius = 0, -- from 0 to 13
+})
+
+local Tab = Window:Tab({
+    Title = "Credits",
+    Icon = "book", -- optional
+    Locked = false,
+})
+
+local Section = Tab:Section({ 
+    Title = "Made By Cvoda_blox",
+})
+
+local Button = Tab:Button({
+    Title = "Discord",
+    Color = Color3.fromHex("#0000FF"), -- paint the button
+    Justify = "Center", -- align items in the center (Center or Between or Left or Right)
+    IconAlign = "Left", -- Left or Right of the text
+    Icon = "thumbs-up", -- removing icon
+    Callback = function()
+        -- ...
+        
+        local link = "https://discord.gg/bZyMGmjqUe"
+
+if setclipboard then
+    setclipboard(link)
+end
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Clipboard",
+    Text = "copy",
+    Duration = 3
+})
+        
+    end
+})
+
+local Button = Tab:Button({
+    Title = "YouTube",
+    Color = Color3.fromHex("#FF0000"), -- paint the button
+    Justify = "Center", -- align items in the center (Center or Between or Left or Right)
+    IconAlign = "Left", -- Left or Right of the text
+    Icon = "youtube", -- removing icon
+    Callback = function()
+        -- ...
+        
+        local link = "https://youtube.com/@cvoda_blox?si=9XkfTpBgl6u60Ijw"
+
+if setclipboard then
+    setclipboard(link)
+end
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Clipboard",
+    Text = "copy",
+    Duration = 3
+})
+        
+    end
+})
+
+local Section = Tab:Section({ 
+    Title = "Update upload on scriptblox or Rscript now",
+})
+
+local Tab = Window:Tab({
+    Title = "mine",
+    Icon = "pickaxe", -- optional
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local MineFolder = workspace:WaitForChild("MineBlocks")
+
+local mining = false
+local holding = false
+local mode = "None"
+
+local currentESP = nil
+local camConnection = nil
+
+local function holdClick(state)
+    if state and not holding then
+        holding = true
+        VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+    elseif not state and holding then
+        holding = false
+        VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
+    end
+end
+
+local function teleportTo(cf)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = cf + Vector3.new(0,3,0)
+    end
+end
+
+local function getPart(model)
+    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function setESP(part)
+    if currentESP then
+        currentESP:Destroy()
+        currentESP = nil
+    end
+
+    local box = Instance.new("BoxHandleAdornment")
+    box.Adornee = part
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = part.Size + Vector3.new(0.3,0.3,0.3)
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.Transparency = 0.5
+    box.Parent = part
+
+    currentESP = box
+end
+
+local function lockCamera(part)
+    if camConnection then camConnection:Disconnect() end
+
+    camConnection = RunService.RenderStepped:Connect(function()
+        if not mining or not part or not part.Parent then return end
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+    end)
+end
+
+Tab:Dropdown({
+    Title = "Auto Mode",
+    Values = {"None", "With Auto Lock"},
+    Value = "None",
+    Callback = function(v)
+        mode = v
+    end
+})
+
+Tab:Toggle({
+    Title = "Auto Mine (Read notes)",
+    Desc = "Teleport to block",
+    Value = false,
+    Callback = function(state)
+        mining = state
+
+        if not state then
+            holdClick(false)
+            if camConnection then camConnection:Disconnect() camConnection = nil end
+            if currentESP then currentESP:Destroy() currentESP = nil end
+            return
+        end
+
+        task.spawn(function()
+            while mining do
+                for _, model in ipairs(MineFolder:GetChildren()) do
+                    if not mining then break end
+
+                    local part = getPart(model)
+                    if part then
+                        teleportTo(part.CFrame)
+
+                        if mode == "With Auto Lock + ESP" then
+                            setESP(part)
+                            lockCamera(part)
+                        end
+
+                        holdClick(true)
+                        task.wait(2.5) 
+                    end
+                end
+            end
+        end)
+    end
+})
+
+local Section = Tab:Section({ 
+    Title = "note Auto Mine only work if you hold pickaxe",
+})
+
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local LocalPlayer = Players.LocalPlayer
+
+local eggFolder = workspace:WaitForChild("EggsToGrab")
+local enabled = false
+
+local function getBasePosition()
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+            local label = v:FindFirstChildWhichIsA("TextLabel", true)
+            if label and label.Text:lower() == "your base" then
+                local adornee = v.Adornee
+                if adornee and adornee:IsA("BasePart") then
+                    return adornee.CFrame + Vector3.new(0,3,0)
+                end
+            end
+        end
+    end
+end
+
+local function teleport(cf)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = cf
+    end
+end
+
+Tab:Toggle({
+    Title = "Auto teleport base",
+    Desc = "pick up egg auto teleport base",
+    Value = false,
+    Callback = function(state)
+        enabled = state
+        if not state then return end
+
+        task.spawn(function()
+            while enabled do
+                for _, model in pairs(eggFolder:GetChildren()) do
+                    if not enabled then break end
+
+                    for _, v in pairs(model:GetDescendants()) do
+                        if v:IsA("ProximityPrompt") then
+                            local part = v.Parent
+                            if part and part:IsA("BasePart") then
+                                teleport(part.CFrame + Vector3.new(0,3,0))
+                                task.wait(0.5)
+
+                                fireproximityprompt(v)
+                                task.wait(0.7)
+
+                                local baseCF = getBasePosition()
+                                if baseCF then
+                                    teleport(baseCF)
+                                end
+
+                                task.wait(1)
+                            end
+                        end
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    end
+})
+
+local Tab = Window:Tab({
+    Title = "Egg",
+    Icon = "egg", -- optional
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local folder = workspace:WaitForChild("EggsToGrab")
+
+local espEnabled = false
+local espObjects = {} 
+
+local function clearESP()
+    for _, esp in pairs(espObjects) do
+        if esp and esp.Parent then
+            esp:Destroy()
+        end
+    end
+    table.clear(espObjects)
+end
+
+local function createESP(model)
+    if not model:IsA("Model") then return end
+
+    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+    if not part then return end
+
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "ESP_EGG"
+    box.Adornee = part
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Size = part.Size + Vector3.new(0.2, 0.2, 0.2)
+    box.Transparency = 0.5
+    box.Color3 = Color3.fromRGB(0, 255, 0)
+    box.Parent = part
+
+    table.insert(espObjects, box)
+end
+
+Tab:Toggle({
+    Title = "ESP Egg",
+    Desc = "ESP box",
+    Value = false,
+    Callback = function(state)
+        espEnabled = state
+
+        if not state then
+            clearESP()
+            return
+        end
+
+        task.spawn(function()
+            while espEnabled do
+                clearESP() -- prevent duplicate esp
+
+                for _, model in ipairs(folder:GetChildren()) do
+                    if not espEnabled then break end
+                    createESP(model)
+                end
+
+                task.wait(1)
+            end
+        end)
+    end
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local eggFolder = workspace:WaitForChild("EggsToGrab")
+local toggleOn = false
+
+local function teleportTo(part)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+    end
+end
+
+Tab:Toggle({
+    Title = "auto pick up egg",
+    Desc = "Teleport egg",
+    Value = false,
+    Callback = function(state)
+        toggleOn = state
+
+        if not state then return end
+
+        task.spawn(function()
+            while toggleOn do
+                for _, model in ipairs(eggFolder:GetChildren()) do
+                    if not toggleOn then break end
+                    -- Cari prompt di model
+                    local prompt = model:FindFirstChildOfClass("ProximityPrompt", true)
+                    local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+                    if prompt and part then
+
+                        teleportTo(part)
+                        task.wait(0.3)
+
+                        fireproximityprompt(prompt)
+                        task.wait(2) -- delay sebelum teleport ke model berikutnya
+                    end
+                end
+            end
+        end)
+    end
+})
+
+local Tab = Window:Tab({
+    Title = "Tool",
+    Icon = "paintbrush", -- optional
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local PickaxeFolder = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Pickaxes")
+
+local selectedTool = "Thunder Hammer"
+local enabled = false
+
+Tab:Dropdown({
+    Title = "Get Pickaxe",
+    Desc = "select",
+    Values = {
+        "Thunder Hammer",
+        "Duck Pickaxe"
+    },
+    Value = "Thunder Hammer",
+    Callback = function(option)
+        selectedTool = option
+    end
+})
+
+Tab:Toggle({
+    Title = "Get Tool to Backpack",
+    Desc = "ReplicatedStorage",
+    Value = false,
+    Callback = function(state)
+        enabled = state
+        if not state then return end
+
+        local tool = PickaxeFolder:FindFirstChild(selectedTool)
+        if tool then
+            local clone = tool:Clone()
+            clone.Parent = LocalPlayer:WaitForChild("Backpack")
+        else
+            warn("not found tool:", selectedTool)
+        end
+    end
+})
+
+local Section = Tab:Section({ 
+    Title = "This is client. Only you can see ",
+})
+
+local Tab = Window:Tab({
+    Title = "Other",
+    Icon = "bird", -- optional
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local ESPEnabled = false
+local ESPObjects = {}
+
+local BOX_COLOR = Color3.fromRGB(255, 0, 0)
+local NAME_COLOR = Color3.fromRGB(255, 255, 255)
+
+local function removeESP(player)
+	if ESPObjects[player] then
+		for _, v in pairs(ESPObjects[player]) do
+			if v then v:Remove() end
+		end
+		ESPObjects[player] = nil
+	end
+end
+
+local function createESP(player)
+	if player == LocalPlayer then return end
+
+	local box = Drawing.new("Square")
+	box.Thickness = 1
+	box.Color = BOX_COLOR
+	box.Filled = false
+	box.Visible = false
+
+	local name = Drawing.new("Text")
+	name.Size = 14
+	name.Center = true
+	name.Outline = true
+	name.Color = NAME_COLOR
+	name.Visible = false
+
+	ESPObjects[player] = {box, name}
+end
+
+local function updateESP()
+	for player, drawings in pairs(ESPObjects) do
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+			if onScreen and ESPEnabled then
+				local scale = math.clamp(1 / (pos.Z / 20), 1, 3)
+				drawings[1].Size = Vector2.new(40 * scale, 60 * scale)
+				drawings[1].Position = Vector2.new(pos.X - drawings[1].Size.X / 2, pos.Y - drawings[1].Size.Y / 2)
+				drawings[1].Visible = true
+
+				drawings[2].Text = player.Name
+				drawings[2].Position = Vector2.new(pos.X, pos.Y - 35 * scale)
+				drawings[2].Visible = true
+			else
+				drawings[1].Visible = false
+				drawings[2].Visible = false
+			end
+		end
+	end
+end
+
+for _, plr in pairs(Players:GetPlayers()) do
+	createESP(plr)
+end
+
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(removeESP)
+
+RunService.RenderStepped:Connect(updateESP)
+
+local Toggle = Tab:Toggle({
+	Title = "ESP Box",
+	Desc = "ESP player",
+	Icon = "eye",
+	Type = "Checkbox",
+	Value = false,
+	Callback = function(state)
+		ESPEnabled = state
+		if not state then
+			for _, drawings in pairs(ESPObjects) do
+				for _, v in pairs(drawings) do
+					v.Visible = false
+				end
+			end
+		end
+	end
+})
+
+local Button = Tab:Button({
+    Title = "infinite yield",
+    Desc = "use command fly and noclip",
+    Locked = false,
+    Callback = function()
+        -- ...
+        
+ loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+        
+    end
+})
+
