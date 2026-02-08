@@ -298,6 +298,146 @@ Tab:Toggle({
     end
 })
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+local XRAY_ENABLED = false
+local XRAY_DISTANCE = 25
+local XRAY_TRANSPARENCY = 0.6
+
+local originalTransparency = {}
+
+local function setCharacter()
+    Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+
+LocalPlayer.CharacterAdded:Connect(setCharacter)
+
+local function isNearPlayer(part)
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    local hrp = Character.HumanoidRootPart
+    return (part.Position - hrp.Position).Magnitude <= XRAY_DISTANCE
+end
+
+RunService.RenderStepped:Connect(function()
+    if not XRAY_ENABLED then return end
+    if not Character then return end
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsDescendantOf(Character) then
+            if isNearPlayer(obj) then
+                if originalTransparency[obj] == nil then
+                    originalTransparency[obj] = obj.Transparency
+                end
+                obj.Transparency = XRAY_TRANSPARENCY
+            else
+                if originalTransparency[obj] ~= nil then
+                    obj.Transparency = originalTransparency[obj]
+                    originalTransparency[obj] = nil
+                end
+            end
+        end
+    end
+end)
+
+Tab:Toggle({
+    Title = "x-ray Near Player",
+    Desc = "no lag",
+    Default = false,
+    Callback = function(state)
+        XRAY_ENABLED = state
+
+        if not state then
+            for part, transparency in pairs(originalTransparency) do
+                if part and part.Parent then
+                    part.Transparency = transparency
+                end
+            end
+            table.clear(originalTransparency)
+        end
+    end
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local SellAll = false
+
+local MerchantPosition = Vector3.new(0, 0, 0) 
+
+local function clickCenter()
+    local cam = workspace.CurrentCamera.ViewportSize
+    VirtualInputManager:SendMouseButtonEvent(
+        cam.X/2, cam.Y/2, 0, true, game, 0
+    )
+    task.wait(0.05)
+    VirtualInputManager:SendMouseButtonEvent(
+        cam.X/2, cam.Y/2, 0, false, game, 0
+    )
+end
+
+local function getNearestPrompt()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local nearest, dist = nil, math.huge
+    for _,v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") and v.Enabled then
+            local part = v.Parent
+            if part:IsA("BasePart") then
+                local d = (hrp.Position - part.Position).Magnitude
+                if d < dist and d < 20 then
+                    dist = d
+                    nearest = v
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if SellAll then
+            local prompt = getNearestPrompt()
+            if prompt then
+                fireproximityprompt(prompt)
+            end
+
+            for _,gui in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
+                if gui:IsA("TextButton") or gui:IsA("TextLabel") then
+                    local txt = gui.Text:lower()
+                    if txt:find("sell") or txt:find("inventory") then
+                        pcall(function()
+                            gui:Activate()
+                        end)
+                    end
+                end
+            end
+
+            clickCenter()
+        end
+    end
+end)
+
+local Toggle = Tab:Toggle({
+    Title = "Auto Sell All",
+    Desc = "Auto sell resource",
+    Icon = "shopping-cart",
+    Value = false,
+    Callback = function(state)
+        SellAll = state
+    end
+})
+
 local Tab = Window:Tab({
     Title = "Egg",
     Icon = "egg", -- optional
@@ -402,11 +542,69 @@ Tab:Toggle({
                         task.wait(0.3)
 
                         fireproximityprompt(prompt)
-                        task.wait(2) -- delay sebelum teleport ke model berikutnya
+                        task.wait(2) 
                     end
                 end
             end
         end)
+    end
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local ToolPath = ReplicatedStorage:WaitForChild("Assets")
+    :WaitForChild("SingleItems")
+    :WaitForChild("Galaxy Egg")
+
+Tab:Button({
+    Title = "Get Galaxy Egg",
+    Desc = "click to get",
+    Callback = function()
+        if not ToolPath then
+            warn("not found")
+            return
+        end
+
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+
+        if backpack:FindFirstChild(ToolPath.Name) then
+            warn("already")
+            return
+        end
+
+        local toolClone = ToolPath:Clone()
+        toolClone.Parent = backpack
+    end
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local ToolPath = ReplicatedStorage:WaitForChild("Assets")
+    :WaitForChild("SingleItems")
+    :WaitForChild("Lava Egg")
+
+Tab:Button({
+    Title = "Get Lava Egg",
+    Desc = "click to get",
+    Callback = function()
+        if not ToolPath then
+            warn("not found")
+            return
+        end
+
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+
+        if backpack:FindFirstChild(ToolPath.Name) then
+            warn("already")
+            return
+        end
+
+        local toolClone = ToolPath:Clone()
+        toolClone.Parent = backpack
     end
 })
 
@@ -426,7 +624,7 @@ local selectedTool = "Thunder Hammer"
 local enabled = false
 
 Tab:Dropdown({
-    Title = "Get Pickaxe",
+    Title = "Get robux Pickaxe",
     Desc = "select",
     Values = {
         "Thunder Hammer",
@@ -439,7 +637,7 @@ Tab:Dropdown({
 })
 
 Tab:Toggle({
-    Title = "Get Tool to Backpack",
+    Title = "Get pickaxe",
     Desc = "ReplicatedStorage",
     Value = false,
     Callback = function(state)
@@ -453,6 +651,64 @@ Tab:Toggle({
         else
             warn("not found tool:", selectedTool)
         end
+    end
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local ToolPath = ReplicatedStorage:WaitForChild("Assets")
+    :WaitForChild("Pickaxes")
+    :WaitForChild("Radiant Pickaxe")
+
+Tab:Button({
+    Title = "Get Radiant Pickaxe",
+    Desc = "click to get",
+    Callback = function()
+        if not ToolPath then
+            warn("not found")
+            return
+        end
+
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+
+        if backpack:FindFirstChild(ToolPath.Name) then
+            warn("already")
+            return
+        end
+
+        local toolClone = ToolPath:Clone()
+        toolClone.Parent = backpack
+    end
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local ToolPath = ReplicatedStorage:WaitForChild("Assets")
+    :WaitForChild("Pickaxes")
+    :WaitForChild("Scythe Pickaxe")
+
+Tab:Button({
+    Title = "Get Scythe pickaxe",
+    Desc = "click to get",
+    Callback = function()
+        if not ToolPath then
+            warn("not found")
+            return
+        end
+
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+
+        if backpack:FindFirstChild(ToolPath.Name) then
+            warn("already")
+            return
+        end
+
+        local toolClone = ToolPath:Clone()
+        toolClone.Parent = backpack
     end
 })
 
@@ -567,3 +823,122 @@ local Button = Tab:Button({
     end
 })
 
+local Tab = Window:Tab({
+    Title = "Jewel boxes",
+    Icon = "box", -- optional
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local HRP = Char:WaitForChild("HumanoidRootPart")
+
+local AutoJewel = false
+local DelayTime = 2
+
+local function getMyBase()
+    if not workspace:FindFirstChild("Bases") then return nil end
+
+    local bases = workspace.Bases
+    if bases:FindFirstChild("5") then
+        return bases["5"]
+    end
+
+    for _,base in pairs(bases:GetChildren()) do
+        if base:FindFirstChild("GrabPad") and base:FindFirstChild("CollectPad") then
+            return base
+        end
+    end
+
+    return nil
+end
+
+local function getPromptFromModel(model)
+    for _,v in pairs(model:GetDescendants()) do
+        if v:IsA("ProximityPrompt") then
+            return v
+        end
+    end
+end
+
+local function tpToModel(model)
+    local part = model:FindFirstChildWhichIsA("BasePart", true)
+    if part then
+        HRP.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if AutoJewel then
+            local base = getMyBase()
+            if not base then
+                warn("Base not found")
+                task.wait(1)
+                continue
+            end
+
+            local grabPad = base:FindFirstChild("GrabPad")
+            if grabPad then
+                local grabPrompt = getPromptFromModel(grabPad)
+                if grabPrompt then
+                    tpToModel(grabPad)
+                    task.wait(0.3)
+                    fireproximityprompt(grabPrompt)
+                end
+            end
+
+            task.wait(DelayTime)
+
+            local collectPad = base:FindFirstChild("CollectPad")
+            if collectPad then
+                local sellPrompt = getPromptFromModel(collectPad)
+                if sellPrompt then
+                    tpToModel(collectPad)
+                    task.wait(0.3)
+                    fireproximityprompt(sellPrompt)
+                end
+            end
+
+            task.wait(DelayTime)
+        end
+    end
+end)
+
+Tab:Dropdown({
+    Title = "Jewel Delay",
+    Desc = "Delay Auto Jewel",
+    Values = {"2 Delay", "7 Delay", "10 Delay"},
+    Value = "2 Delay",
+    Callback = function(opt)
+        if opt == "2 Delay" then
+            DelayTime = 2
+        elseif opt == "7 Delay" then
+            DelayTime = 7
+        elseif opt == "10 Delay" then
+            DelayTime = 10
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "Auto Jewel Boxes",
+    Desc = "Auto Grab Sell Jewel Boxes",
+    Icon = "gem",
+    Value = false,
+    Callback = function(state)
+        AutoJewel = state
+    end
+})
+
+local Tab = Window:Tab({
+    Title = "Event",
+    Icon = "apple", -- optional
+    Locked = false,
+})
+
+local Section = Tab:Section({ 
+    Title = "no idea, give suggestion on discord",
+})
